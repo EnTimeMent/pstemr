@@ -1,5 +1,5 @@
 
-
+randomseed = 1
 
 def pstemr(seqlen, dof, channels):
     
@@ -30,11 +30,9 @@ def pstemr(seqlen, dof, channels):
 
 
     embedding1 = skelencoder(gnskelsilayer)
-    #print(embedding1)
+  
     reembedding1 = skelencoder(reskelsilayer)
 
-
-    #print(embedding1)
 
     timeencoder = keras.Sequential()
     timeencoder.add(keras.layers.LSTM(3, return_sequences=True))
@@ -51,7 +49,6 @@ def pstemr(seqlen, dof, channels):
     embeddingout =  keras.layers.Reshape((20,), name='embedding_out')(embedder(embedding2))
     reembeddingout = embedder(reembedding2)
 
-    #print(embedding1)
     
     embeddingdiff = keras.layers.Subtract()([embeddingout, reembeddingout])
     reshapedembeddingdiff = keras.layers.Reshape((-1, 1))(embeddingdiff)
@@ -71,3 +68,90 @@ def pstemr(seqlen, dof, channels):
                         outputs=[actionoutlayer, diffout])
 
     return net
+
+
+def weighted_crossentropy(y_true, y_pred):
+
+    gamma = 1
+    beta = 2
+
+    
+    propn =  tf.reduce_sum(y_true, axis=0, keepdims=True)/tf.reduce_sum(y_true)
+    wgts = tf.reduce_sum(tf.math.pow(((1-propn)+gamma), beta)*y_true, axis=1)
+
+
+    cce = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
+    base_cce = cce(y_true, y_pred)
+
+
+    
+    return tf.reduce_mean(base_cce*wgts)
+
+
+
+def weighted_mse(y_true, y_pred):
+
+    gamma = 1
+    beta = 2
+
+    
+    propn =  tf.reduce_sum(y_true, axis=0, keepdims=True)/tf.reduce_sum(y_true)
+    wgts = tf.reduce_sum(tf.math.pow(((1-propn)+gamma), beta)*y_true, axis=1)
+
+
+    mse = tf.keras.losses.MeanSquaredError(reduction=tf.keras.losses.Reduction.NONE)
+    base_mse = mse(y_true, y_pred)
+
+
+    
+    return tf.reduce_mean(base_mse*wgts)
+
+
+
+class MyRescale(keras.layers.Layer):
+    def __init__(self, randomseed, **kwargs):
+        super(MyRescale, self).__init__(**kwargs)
+        
+        self.randomseed = tf.random.set_seed(randomseed)
+        
+
+
+    def call(self, inputs):
+
+
+        scale = tf.random.uniform([tf.shape(inputs)[0], 1, 1, 1], minval=-2, maxval=2, seed=self.randomseed, dtype=tf.float32)
+        scale = tf.repeat(scale, repeats=tf.shape(inputs)[1], axis=1)
+        scale = tf.repeat(scale, repeats=tf.shape(inputs)[2], axis=2)
+        scale = tf.repeat(scale, repeats=tf.shape(inputs)[3], axis=3)
+
+        outputs = inputs*scale
+
+        translation = tf.random.uniform([tf.shape(inputs)[0], 1, 1, 1], minval=-0.5, maxval=0.5, seed=self.randomseed, dtype=tf.float32)
+        translation = tf.repeat(translation, repeats=tf.shape(inputs)[1], axis=1)
+        translation = tf.repeat(translation, repeats=tf.shape(inputs)[2], axis=2)
+        translation = tf.repeat(translation, repeats=tf.shape(inputs)[3], axis=3)
+
+        outputs = inputs + translation
+        
+        return outputs
+
+    
+
+    def compute_output_shape(self, input_shape):
+
+        return tf.TensorShape(input_shape)
+
+    
+
+    def get_config(self):
+        config = super(MyRescale, self).get_config()
+
+        # Specify here all the values for the constructor's parameters
+        config['randomseed'] = self.randomseed
+
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
