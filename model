@@ -78,6 +78,15 @@ def pstemr(seqlen, dof, channels):
     return net
 
 
+def compile_network(self, net):
+
+    net.compile(optimizer=keras.optimizers.Adam(learning_rate=self.parameters['lr'], decay=self.parameters['decay']),
+      loss={'action_out':HARLabelling.weighted_crossentropy, 'diff_out':'mae'}, metrics={'action_out':'accuracy', 'diff_out':'mae'},
+        loss_weights={'action_out':1.0, 'diff_out':1.0})
+
+    return net
+
+
 def weighted_crossentropy(y_true, y_pred):
 
     gamma = 1
