@@ -85,28 +85,10 @@ def pstemr(seqlen, dof, channels):
 def compile_network(self, net):
 
     net.compile(optimizer=keras.optimizers.Adam(learning_rate=self.parameters['lr'], decay=self.parameters['decay']),
-      loss={'action_out':HARLabelling.weighted_crossentropy, 'diff_out':'mae'}, metrics={'action_out':'accuracy', 'diff_out':'mae'},
+      loss={'action_out':weighted_mse, 'diff_out':'mae'}, metrics={'action_out':'accuracy', 'diff_out':'mae'},
         loss_weights={'action_out':1.0, 'diff_out':1.0})
 
     return net
-
-
-def weighted_crossentropy(y_true, y_pred):
-
-    gamma = 1
-    beta = 2
-
-    
-    propn =  tf.reduce_sum(y_true, axis=0, keepdims=True)/tf.reduce_sum(y_true)
-    wgts = tf.reduce_sum(tf.math.pow(((1-propn)+gamma), beta)*y_true, axis=1)
-
-
-    cce = tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE)
-    base_cce = cce(y_true, y_pred)
-
-
-    
-    return tf.reduce_mean(base_cce*wgts)
 
 
 
